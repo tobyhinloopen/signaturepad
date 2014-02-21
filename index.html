@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Signature Field</title>
+  <script src="signature-field.js" type="text/javascript"></script>
+  <style type="text/css">
+    canvas {
+      border: 1px dotted black;
+    }
+  </style>
+</head>
+<body>
+  <button id="clear">CLR</button><br>
+  <script type="text/javascript">
+    var signature_field = new SignatureField({
+      color: "blue",
+      width: 640,
+      height: 320,
+      before_repaint: function() { console.log("Before repaint..."); }
+    });
+    document.body.appendChild(signature_field.canvas);
+    document.getElementById("clear").addEventListener("click", function() {
+      signature_field.clear();
+    });
+  </script>
+</body>
+</html>
