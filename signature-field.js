@@ -28,19 +28,16 @@ SignatureField.prototype.bind_mouse_events = function() {
 
   var mousemove_callback = function(e) {
     e.preventDefault();
-    var x = e.clientX - offset_x, y = e.clientY - offset_y;
-    signature_field.current_path.push(x, y);
-    signature_field.context2d.lineTo(x, y);
-    signature_field.context2d.stroke();
+    signature_field.current_path.add_point(e.clientX - offset_x, e.clientY - offset_y);
   };
 
   var mouseup_callback = function(e) {
     e.preventDefault();
+    signature_field.current_path.add_point(e.clientX - offset_x, e.clientY - offset_y);
     signature_field.paths.push(signature_field.current_path);
     signature_field.current_path = null;
     window.removeEventListener("mousemove", mousemove_callback, true);
     window.removeEventListener("mouseup", mouseup_callback, true);
-    signature_field.repaint_later();
   };
 
   this.canvas.addEventListener("mousedown", function(e) {
@@ -49,32 +46,19 @@ SignatureField.prototype.bind_mouse_events = function() {
     offset_y = signature_field.canvas.offsetTop;
     window.addEventListener("mousemove", mousemove_callback, true);
     window.addEventListener("mouseup", mouseup_callback, true);
-    var x = e.clientX - offset_x, y = e.clientY - offset_y;
-    signature_field.current_path = [x, y];
-    signature_field.context2d.beginPath();
-    signature_field.context2d.lineTo(x, y);
+    signature_field.current_path = new SignatureField.Path(signature_field);
+    signature_field.current_path.add_point(e.clientX - offset_x,  e.clientY - offset_y);
   }, true);
 };
 
 SignatureField.prototype.repaint = function() {
   this.before_repaint && this.before_repaint(this);
-
-  this.context2d.clearRect(0, 0, this.width, this.height);
-  this.context2d.setTransform(1, 0, 0, 1, 0, 0);
   this.repaint_without_callbacks();
-
   this.after_repaint && this.after_repaint(this);
 };
 
-SignatureField.prototype.compose_path_in_rendering_context = function(path) {
-  this.context2d.moveTo(path[0], path[1]);
-  for(var i=1; i<path.length; i++) {
-    this.context2d.lineTo(path[i*2], path[i*2+1]);
-  }
-};
-
 SignatureField.prototype.repaint_without_callbacks = function() {
-  this.context2d.strokeStyle = this.color;
+  this.configure_context();
   this.context2d.beginPath();
   for(var i=0; i<this.paths.length; i++) {
     this.compose_path_in_rendering_context(this.paths[i]);
@@ -95,10 +79,17 @@ SignatureField.prototype.repaint_later = function() {
   });
 };
 
+SignatureField.prototype.configure_context = function() {
+  this.context2d.clearRect(0, 0, this.width, this.height);
+  this.context2d.setTransform(1, 0, 0, 1, 0, 0);
+  this.context2d.lineWidth = 1;
+  this.context2d.strokeStyle = this.color;
+};
+
 SignatureField.prototype.clear = function() {
   this.paths = [];
   this.repaint_later();
-}
+};
 
 Object.defineProperty(SignatureField.prototype, "width", {
   get: function() {
@@ -121,3 +112,33 @@ Object.defineProperty(SignatureField.prototype, "height", {
     return this.height;
   }
 });
+
+SignatureField.Path = function(signature_field) {
+  this.signature_field = signature_field;
+  this.points = [];
+};
+
+(function() {
+  var delegate_accessors = ["width", "height", "canvas", "context2d"];
+  for(var i=0; i<delegate_accessors.length; i++) {
+    (function(key) {
+      Object.defineProperty(SignatureField.Path.prototype, key, {
+        get: function() { return this.signature_field[key]; }
+      });
+    })(delegate_accessors[i]);
+  }
+})();
+
+SignatureField.Path.prototype.add_point = function(x, y) {
+  this.points.push(x, y);
+  this.render();
+};
+
+SignatureField.Path.prototype.render = function() {
+  this.context2d.beginPath();
+  this.context2d.moveTo(this.points[0], this.points[1]);
+  for(var i=2; i<this.points.length; i+=2) {
+    this.context2d.lineTo(this.points[i], this.points[i+1]);
+  }
+  this.context2d.stroke();
+};
